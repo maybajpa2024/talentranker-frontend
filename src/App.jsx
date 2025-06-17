@@ -2,37 +2,50 @@ import React, { useState } from 'react';
 import './App.css';
 
 function App() {
-  const [message, setMessage] = useState('');
-  const [response, setResponse] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: "👋 Hi! Paste a job description and I’ll find the best candidates." }
+  ]);
+  const [input, setInput] = useState('');
 
   const sendMessage = async () => {
-    setLoading(true);
+    if (!input.trim()) return;
+
+    const userMessage = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+
     try {
       const res = await fetch('https://talentranker-production-4641.up.railway.app/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message: input }),
       });
       const data = await res.json();
-      setResponse(data.response);
-    } catch (error) {
-      setResponse('❌ Error connecting to backend.');
-    } finally {
-      setLoading(false);
+      const botMessage = { role: 'assistant', content: data.response };
+      setMessages(prev => [...prev, botMessage]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "❌ Error connecting to backend." }]);
     }
+
+    setInput('');
   };
 
   return (
     <div className="chat-container">
-      <h1>💼 TalentRanker</h1>
+      <h2>💼 TalentRanker AI</h2>
+      <div className="chat-box">
+        {messages.map((msg, idx) => (
+          <div key={idx} className={msg.role === 'user' ? 'chat-bubble user' : 'chat-bubble assistant'}>
+            <strong>{msg.role === 'user' ? 'You' : 'AI'}:</strong> {msg.content}
+          </div>
+        ))}
+      </div>
       <textarea
-        placeholder="Paste the job description here..."
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Type your job description here..."
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
       />
-      <button onClick={sendMessage}>Rank Candidates</button>
-      {loading ? <p>⏳ Ranking resumes...</p> : <pre>{response}</pre>}
+      <button onClick={sendMessage}>Send</button>
     </div>
   );
 }
