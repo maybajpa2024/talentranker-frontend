@@ -1,49 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 
 function App() {
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: "👋 Hi! Paste a job description and I’ll find the best candidates." }
-  ]);
-  const [input, setInput] = useState('');
+  const [message, setMessage] = useState('');
+  const [chat, setChat] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const bottomRef = useRef(null);
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!message.trim()) return;
 
-    const userMessage = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
+    setChat([...chat, { sender: 'user', message }]);
+    setIsLoading(true);
 
     try {
       const res = await fetch('https://talentranker-production-4641.up.railway.app/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message }),
       });
-      const data = await res.json();
-      const botMessage = { role: 'assistant', content: data.response };
-      setMessages(prev => [...prev, botMessage]);
-    } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "❌ Error connecting to backend." }]);
-    }
 
-    setInput('');
+      const data = await res.json();
+      setChat(prev => [...prev, { sender: 'ai', message: data.reply }]);
+    } catch (err) {
+      setChat(prev => [...prev, { sender: 'ai', message: '❌ Error connecting to backend.' }]);
+    } finally {
+      setIsLoading(false);
+      setMessage('');
+    }
   };
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chat]);
 
   return (
     <div className="chat-container">
-      <h2>💼 TalentRanker AI</h2>
+      <h2>🧠 TalentRanker Chat</h2>
       <div className="chat-box">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={msg.role === 'user' ? 'chat-bubble user' : 'chat-bubble assistant'}>
-            <strong>{msg.role === 'user' ? 'You' : 'AI'}:</strong> {msg.content}
+        {chat.map((entry, idx) => (
+          <div key={idx} className={`message ${entry.sender}`}>
+            <strong>{entry.sender === 'user' ? '🧑 You' : '🤖 AI'}:</strong> {entry.message}
           </div>
         ))}
+        {isLoading && <p>⏳ Thinking...</p>}
+        <div ref={bottomRef} />
       </div>
       <textarea
-        placeholder="Type your job description here..."
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+        value={message}
+        onChange={e => setMessage(e.target.value)}
+        placeholder="Paste a JD or ask something..."
       />
       <button onClick={sendMessage}>Send</button>
     </div>
